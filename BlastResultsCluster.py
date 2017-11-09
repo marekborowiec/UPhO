@@ -5,11 +5,14 @@ import os
 import re
 import glob
 
-blast_out_sep = "\t"
 
 
-def mcl_abc(blastout, expectation, blast_out_sep):
+def mcl_abc(blastout, expectation, blast_out_type):
     """Create input file abc for mcl,from a csv blast out and a expectation file """
+    if blast_out_type == 'csv':
+        blast_out_sep = ','
+    elif blast_out_type == 'tab':
+        blast_out_sep = '\t'
     outName = 'mcl_%s.abc' % str(expectation)
     myOut = open(outName, 'w')
     in_file = open(blastout, 'r')
@@ -23,12 +26,16 @@ def mcl_abc(blastout, expectation, blast_out_sep):
     myOut.close()
 
 
-def clusters(blastout, expectation, blast_out_sep):
-    """This function take two arguments: 1) the blast csv output, and 
-    2) an E Value threshold for the formation of clusters. 
+def clusters(blastout, expectation, blast_out_type):
+    """This function take two arguments: 1) the blast csv output, 
+    and 2) an E Value threshold for the formation of clusters. 
     The output is text file with the identifiers of the sequenes clustered on a single line, 
-    a hidden parameter in this function is the alignment lenght, Im using 50 but can be  modified."""
-    myOut = open("clusters_%s.txt"  % expectation, 'w')
+    a hidden parameter in this function is the alignment lenght, I'm using 50 but can be  modified."""
+    if blast_out_type == 'csv':
+        blast_out_sep = ','
+    elif blast_out_type == 'tab':
+        blast_out_sep = '\t'
+    myOut = open("clusters_%s.txt" % expectation, 'w')
     in_file = open(blastout, 'r')
     previous_query = ''
     Homolog=[]
@@ -49,10 +56,14 @@ def clusters(blastout, expectation, blast_out_sep):
     myOut.write(','.join(Homolog) + '\n')
 
 
-def non_redundant(cluster, minTaxa, blast_out_sep):
+def non_redundant(cluster, minTaxa, blast_out_type):
     """This function filters out clusters with redundant species. 
     Takes as input a cluster file, like the one produces by the fuction clusters, 
     and a minimum number of different species"""
+    if blast_out_type == 'csv':
+        blast_out_sep = ','
+    elif blast_out_type == 'tab':
+        blast_out_sep = '\t'
     inFile = open(cluster, 'rw')
     outFile =open("ClustNR_m%d.txt" %minTaxa, "w")
     SetsInspected = []
@@ -92,40 +103,46 @@ def redundant(cluster, minTaxa):
 #MAIN
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='This script produces clusters of homolog sequences from a csv formatted blast output file.')
+    parser = argparse.ArgumentParser(description = 'This script produces clusters of homolog sequences from a csv formatted blast output file.')
     parser.add_argument('-in', 
         dest = 'input', 
         type = str, 
-        default= None, 
+        default = None, 
         help = 'Blast output file to process, if no input is provided the program will try to process a file with extension "csv" in the working diretory.')
     parser.add_argument('-d', 
-        dest= 'delimiter', 
-        type =str, 
-        default= '|', 
-        help ='Custom character separating the otu_name from the sequence identifier')
+        dest = 'delimiter', 
+        type = str, 
+        default = '|', 
+        help = 'Custom character separating the otu_name from the sequence identifier')
+    parser.add_argument('-bd', 
+        dest = 'blast_out_type', 
+        type = str, 
+        choices = ['csv', 'tab'], 
+        help = 'Type of BLAST output; choices: csv or tab')
     parser.add_argument('-sc', 
-        dest= 'sc',  
-        action ='store_true', 
-        default= False, help ='When the flag is present only sigle copy clusters, those composed of only one sequences per species , will be written to the output.')
+        dest = 'sc',  
+        action = 'store_true', 
+        default = False, 
+        help = 'When the flag is present only sigle copy clusters, those composed of only one sequences per species , will be written to the output.')
     parser.add_argument('-mcl', 
         dest= 'mcl', 
-        action='store_true', 
-        default= False, 
+        action = 'store_true', 
+        default = False, 
         help = "When true, a 'abc' file is produced to use as input for Markov Clustering with Stijn van Dongen's  program mcl.")
     parser.add_argument('-e', 
-        dest='expectation', 
-        type=float, 
+        dest = 'expectation', 
+        type = float, 
         default = 1e-5, 
         help ='Additional expectation value threshold, default 1e-5.')
     parser.add_argument('-m', 
-        dest='minTaxa', 
-        type=int, 
+        dest = 'minTaxa', 
+        type = int, 
         default = 4, 
         help = 'minimum number of different species to keep in each cluster.')
     parser.add_argument('-R', 
-        dest='reference', 
-        type=str, 
-        help= 'Name of the reference file from where to extract individual sequences to form cluster files, if none is provided it is assumed to be a file named "All.fasta" in the working directory')
+        dest = 'reference', 
+        type = str, 
+        help = 'Name of the reference file from where to extract individual sequences to form cluster files, if none is provided it is assumed to be a file named "All.fasta" in the working directory')
 
     args, unknown = parser.parse_known_args()
 
@@ -133,7 +150,7 @@ if __name__ == "__main__":
 
     if args.input == None:
         print 'No BLAST output file was provided'
-        csvs=glob.glob("*.csv")
+        csvs = glob.glob("*.csv")
         if len(csvs) > 0:
             csv = csvs[0]
             print 'No BLAST output  provided the file %s in the wd will be tried' % csv
@@ -143,11 +160,11 @@ if __name__ == "__main__":
         csv = args.input
     if args.mcl:
         print 'Creating an abc file for mcl'
-        mcl_abc(args.input, args.expectation, blast_out_sep)
+        mcl_abc(args.input, args.expectation, args.blast_out_type)
     else:
         print 'E value filtering and clustering started'
-        clusters(csv, args.expectation, blast_out_sep)
-        clustFile = 'clusters_%s.txt' %args.expectation
+        clusters(csv, args.expectation, args.blast_out_type)
+        clustFile = 'clusters_%s.txt' % args.expectation
         if not args.sc:
             print 'Minimum taxa filtering started'
             redundant(clustFile, args.minTaxa)
@@ -162,6 +179,6 @@ if __name__ == "__main__":
                     if args.reference:
                         import Get_fasta_from_Ref as GFR
                         try:
-                            GFR.main('ClustNR_m%d.txt' %args.minTaxa,'clustSC_e%s_m%d'  % (args.expectation, args.minTaxa), 'bcl', args.reference)
+                            GFR.main('ClustNR_m%d.txt' % args.minTaxa,'clustSC_e%s_m%d' % (args.expectation, args.minTaxa), 'bcl', args.reference)
                         except:
                             pass
